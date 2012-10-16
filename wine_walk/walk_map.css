@@ -1,0 +1,190 @@
+#poi_image {
+	color:#fff;
+}
+
+#walk_map_add_poi_gps_coords {
+	color:#fff;
+	font-size:9pt;
+}
+#walk_map_add_poi_dialog {
+	visibility:hidden;
+	display:none;
+	width:600px;
+	height:700px;
+	background-color:#000;
+	border:10px;
+}
+
+#walk_map_add_poi_img_div {
+	margin-top:20px;
+}
+
+#walk_map_add_poi_description_div {
+	margin-top:20px;
+}
+
+#walk_map_add_poi_title_div {
+	margin-top:20px;
+}
+
+#walk_map_add_poi_location_div {
+	margin-top:20px;
+	height:200px;
+}
+
+#walk_map_add_poi_error_div {
+	color:#99f;
+	font-size:10pt;
+	font-style:italic;
+}
+
+#walk_map_add_poi_submit_div {
+	margin-top:20px;
+}
+
+#walk_map_add_poi_dialog div textarea{
+	width:500px;
+	height:100px;
+}
+
+#walk_map_img_dialog {
+	visibility:hidden;
+	display:none;
+	width:800px;
+	height:600px;
+	background-color:#000
+}
+
+#walk_map_img_dialog .walk_map_poi_main_div {
+	float:left;
+	width: 400px;
+}
+
+#walk_map_img_dialog .walk_map_poi_comment_div {
+	float:right;
+	width:300px;
+}
+
+.walk_map_comment_header {
+	font-style: italic;
+	margin:0;
+	padding:0;
+	-webkit-margin-after: 0;
+}
+
+.walk_map_comment_text {
+	margin-top:0px;
+	padding:0;
+	width:250px;
+}
+
+#walk_map_img_dialog .walk_map_poi_main_div .walk_map_poi_image {
+	width: 550px;
+}
+
+#walk_map_img_dialog .walk_map_poi_header {
+	visibility:visible;
+	font-size:9pt;
+}
+
+#walk_map_img_dialog .walk_map_poi_author {
+}
+
+#walk_map_img_dialog .walk_map_poi_date {
+}
+
+#walk_map_img_dialog .walk_map_poi_text {
+	margin-top: 5pt;
+	font-size:12pt;
+}
+
+#walk_map_img_dialog .walk_map_poi_main_div .walk_map_poi_text {
+	margin-top:20px;
+	font-size:14pt;
+}
+
+#walk_map_img_dialog a.walk_map_add_comment {
+	background:url(../../../../sites/default/files/walkmap/add_comment.png) no-repeat 0 0;
+	display:block;
+	width:151px;
+	height:41px;
+}
+
+#simplemodal-overlay {
+	background-color:#000; 
+	cursor:wait;
+}
+
+#simplemodal-container {
+	color:#bbb; 
+	background-color:#333; 
+	border:4px solid #444; 
+	padding:12px;
+}
+
+#simplemodal-container a {color:#ddd;}
+#simplemodal-container a.modalCloseImg {
+	background:url(../../../../sites/default/files/walkmap/x.png) no-repeat; 
+	width:25px; 
+	height:29px; 
+	display:inline; 
+	z-index:3200; 
+	position:absolute; 
+	top:-15px; 
+	right:-16px; 
+	cursor:pointer;
+}
+
+#simplemodal-container {
+	background-color:#333
+	border:4px solid #444;
+	color: #BBB;
+}
+
+
+.walk_map_photo_link {
+	position:absolute;
+	display:block;
+	width:50px;
+	height:35px;
+	background:url(../../../../sites/default/files/walkmap/geo_marker.png) no-repeat 0 0;
+}
+
+.walk_map_text_link {
+	position:absolute;
+	display:block;
+	width:50px;
+	height:35px;
+	background:url(../../../../sites/default/files/walkmmap/walk_map_icons.png) no-repeat -51px 0;
+}
+
+.rot0 {
+	transform:rotate(0deg);
+	-moz-transform:rotate(0deg);
+	-ms-transform:rotate(0deg);
+	-webkit-transform:rotate(0deg);
+	-o-transform:rotate(0deg);
+}
+
+.rot90 {
+	transform:rotate(90deg);
+	-moz-transform:rotate(90deg);
+	-ms-transform:rotate(90deg);
+	-webkit-transform:rotate(90deg);
+	-o-transform:rotate(90deg);
+}
+
+.rot180 {
+	transform:rotate(180deg);
+	-moz-transform:rotate(180deg);
+	-ms-transform:rotate(180deg);
+	-webkit-transform:rotate(180deg);
+	-o-transform:rotate(180deg);
+}
+.rot270 {
+	transform:rotate(270deg);
+	-moz-transform:rotate(270deg);
+	-ms-transform:rotate(270deg);
+	-webkit-transform:rotate(270deg);
+	-o-transform:rotate(270deg);
+}

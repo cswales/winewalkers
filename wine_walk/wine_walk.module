@@ -1,0 +1,451 @@
+<?php
+/**
+ * @file
+ * Code for the wine_walk.
+ */
+
+function wine_walk_form($node, $form_state) {
+//	flog($form_state, 'TWW form state: ');
+    return node_content_form($node, $form_state);
+}
+
+function wine_walk_view($node, $view_mode) {
+//    flog($view_mode, 'TWW view: ');
+    return $node;
+}
+
+global 	$wine_walk_req_is_rest;
+global 	$needs_upgraded_jquery;
+global 	$wine_walk_geoextract_success;
+
+$needs_upgraded_jquery = false;
+$wine_walk_req_is_rest = false;
+$wine_walk_geoextract_success = false;
+
+/* Implements hook_node_view.
+ * For walk type nodes, alter the link to the associated walkmaps
+ * so that they contain the query 'nekkid=true'. This flag is used to signal
+ * special display handling for that walkmap.
+ *
+ * For walkmap type nodes, if the 'nekkid=true' flag is set, export session information, 
+ * the walk map id, the walk id, the map coordinate translation between lat/long and 
+ * pixel coordinates, and the point of interest coordinates to javascript. 
+ * Exporting these values has two purposes: 1) It allows me do a lot of the page 
+ * dynamic display directly in Javascript, which I can program in 10x faster than I can
+ * if I have to go through Drupal. 2) It allows me to make REST calls to get information
+ * directly from Drupal.
+ */
+function wine_walk_node_view($node, $view_mode, $langcode){
+
+	global $needs_upgraded_jquery;
+//	global $user;
+	$needs_upgraded_jquery = false;
+	
+	// For walk nodes, add 'nekkid=true' to the query string associated with the link to 
+	// each associated walkmap
+	if ($node->type=="walk" && $view_mode=="full"){
+		$walkmap1 = $node->content["field_walkmap1"]["0"]["node"];
+		foreach ($walkmap1 as $key => $value) {
+			if (is_array($value)) {
+//				$query = $node->content["field_walkmap1"][0]["node"][$key]["field_pic"]["0"]["#path"]["options"]["query"];
+//				$query[] = array("walk_nid" => $node->nid, 'nekkid' => 'true');
+				if (count($node->field_walk_overlay1) > 0) {
+		//			$query[] = array("overlay" => urlencode(file_create_url($node->field_walk_overlay1['und'][0]['uri'])));
+					$node->content["field_walkmap1"][0]["node"][$key]["field_pic"]["0"]["#path"]["options"]["query"][] = array("walk_nid" => $node->nid, 'nekkid' => 'true', 'overlay' => urlencode(file_create_url($node->field_walk_overlay1['und'][0]['uri'])));
+				} else {
+					$node->content["field_walkmap1"][0]["node"][$key]["field_pic"]["0"]["#path"]["options"]["query"][] = array("walk_nid" => $node->nid, 'nekkid' => 'true');
+				}
+	//			$node->content["field_walkmap1"][0]["node"][$key]["field_pic"]["0"]["#path"]["options"]["query"][] = array("walk_nid" => $node->nid, 'nekkid' => 'true');
+				break;
+			}
+		}
+	}
+	
+	// For walkmaps when the 'nekkid' flag is set, send parameters to javascript that
+	// will allow us to do client-side manipulation and display of the walkmap.
+	else if ($node->type == "walk_map" && $view_mode=="full" && $_GET['nekkid'] == 'true') {
+		global $user;
+		
+		$module_path = drupal_get_path('module', 'wine_walk');
+		
+		// Add static javascript libraries to the page
+		$node->content['#attached']['js'][] = array( 'type' => 'file',
+				                                     'data' => $module_path . '/2d_xform.js');
+		$node->content['#attached']['js'][] = array( 'type' => 'file',
+				                                     'data' => $module_path . '/walk_map.js');
+		$node->content['#attached']['js'][] = array( 'type' => 'file',
+				                                     'data' => $module_path . '/jquery.simplemodal.1.4.2.min.js');
+		$node->content['#attached']['css'][] = array( 'type' => 'file',
+				'data' => $module_path . '/walk_map.css');
+		
+		// set up dynamic javascript parameters associated with this walk map.
+		$walk_map_js = array();
+		$walk_map_js['wmap_id'] = $node->nid;
+		$walk_map_js['walk_id'] = $_GET['walk_nid'];
+		$walk_map_js['coords']  = array('lat1'  => $node->field_lat1['und'][0]['value'],
+				                        'long1' => $node->field_long1['und'][0]['value'],
+				                        'lat2'  => $node->field_lat2['und'][0]['value'],
+				                        'long2' => $node->field_long2['und'][0]['value'],
+				                        'X1'    => $node->field_x1['und'][0]['value'], 
+				                        'Y1'    => $node->field_y1['und'][0]['value'],
+				                        'X2'    => $node->field_x2['und'][0]['value'],
+				                        'Y2'    => $node->field_y2['und'][0]['value'] );
+		$walk_map_js['post_comment'] = user_access('post comment');
+		$walk_map_js['create_poi']   = user_access('create poi content');
+		$walk_map_js['user']         = $user->name;
+	
+		
+		// Point of interest array is one of the most important dynamic parameters.
+		$result = db_query("select field_data_field_walk.entity_id from (field_data_field_walkmap, field_data_field_walk) where 
+		                                (field_data_field_walkmap.field_walkmap_target_id = :wmap_id) and
+		                                (field_data_field_walk.field_walk_target_id = :walk_id) and
+										(field_data_field_walk.entity_id = field_data_field_walkmap.entity_id)", array(':wmap_id' => $node->nid, ':walk_id' => $_GET['walk_nid']));
+		$poi_array = array();
+		foreach ($result as $record) {
+			$lat_results  = db_query("select field_lat_value from field_data_field_lat where entity_id = :nid", array(':nid' => $record->entity_id));
+			$long_results = db_query("select field_long_value from field_data_field_long where entity_id = :nid", array(':nid' => $record->entity_id));
+			$lat = 0;
+			$long = 0;
+			foreach ($lat_results as $lat_result) {
+				$lat = $lat_result->field_lat_value;
+				break;
+			}
+			foreach ($long_results as $long_result) {
+				$long = $long_result->field_long_value;
+				break;
+			}
+			$poi = array('poi_id' => $record->entity_id, 'lat' => $lat, 'long' => $long);
+			$poi_array[] = $poi;
+			
+			flog_it($poi);
+		}
+		
+		$walk_map_js['poi_array'] = $poi_array;
+
+/*
+	// We're using session information - I don't think we need the user_name
+		if ($user->name && $user->uid) {
+			$walk_map_js['user_name']  = $user->name;
+			$walk_map_js['user_id']    = $user->uid;
+		}
+*/
+		// Session information is critical. This combination of standard browser sessions
+		// and REST is a little hack-y, but, c'est la vie.
+		foreach($_COOKIE as $key => $value) {
+			if (strncmp($key, "SESS", 4) == 0) {
+				$walk_map_js['sess_name'] = $key;
+				$walk_map_js['sess_id']   = $value;
+				break;
+			}
+		}
+		
+		// attach the dynamic parameters to the page
+		$node->content['#attached']['js'][] = array( 'type' => 'setting',
+				                                     'data' => array('walk_map_js' => $walk_map_js));
+		
+		// Handling content display somewhat differently, so don't show comments here. 
+		unset($node->content['comments']);
+		
+		$needs_upgraded_jquery = true;
+		
+	}
+
+//	flog_it($view_mode, 'CSW TWW view_mode: ');
+//	flog_it($node->type, 'CSW TWW node_type: ');
+	return $node;
+}
+
+/* 
+ * Implements hook_page_alter
+ * When showing page with the 'nekkid' flag set, remove the sidebars and footers.
+ */ 
+function wine_walk_page_alter(&$page) {
+	if ($_GET['nekkid'] == 'true') {
+		$dummy = "TWW - have nekked page";
+		flog_it($dummy);
+		unset($page['sidebar_a']);
+		unset($page['copyright']);
+		unset($page['prefooter_first']);
+		unset($page['page_bottom']);
+	}
+//	$dummy = "TWW page alter called";
+//	flog_it($dummy);
+}
+
+/*
+function wine_walk_page_build(&$page) {
+	$dummy = "TWW page build called";
+	flog_it($dummy);
+}
+*/
+
+/* 
+ * Implements hook_js_alter
+ * If this page requires a newer version of jQuery, provide it
+ */
+function wine_walk_js_alter(&$javascript) {
+  global $needs_upgraded_jquery;
+  $dummy = "TWW js alter called";
+  if ($needs_upgraded_jquery) {
+  	global $base_url;
+    $javascript['misc/jquery.js']['data'] = $base_url . '/' . drupal_get_path('module', 'wine_walk') . '/jquery-1.7.2.min.js';
+    $javascript['misc/jquery.js']['version'] = '1.7.2';
+//  	flog_it($dummy);
+  }
+}
+
+/*
+ * Implements hook_field_widget_properties_alter
+ * Entity references do not appear to be able to take raw numbers as form input. However,
+ * in a REST request, raw numbers is what I got. Change the widget to be a number input
+ * field, rather than whatever specified in the API.
+ * XXX - I only want to do this with a REST request - I'm currently doing it any time 
+ * we are dealing with a poi field.
+ * really ought to do this with any entity reference field, for better generality.
+ */
+function wine_walk_field_widget_properties_node_alter(&$widget, &$context) {	
+	global 	$wine_walk_req_is_rest;
+
+	if ( $wine_walk_req_is_rest && $context["instance"]["bundle"] == 'poi' && 
+	   ($context["instance"]["field_name"] == 'field_walkmap' || $context["instance"]["field_name"] == 'field_walk')) {
+	   $widget["type"]   = 'number';
+	   $widget["module"] = 'number';
+	}
+}
+
+/*
+ * implements <node_type>_node_form_submit.
+ *
+ * For reasons not entirely clear to me, when custom node types are created by the REST
+ * services interface, the form used to create the node gets built and populated, but
+ * it doesn't get submitted. To fix this, I'm creating a specialized node type function 
+ * that calls the default node form submitter.
+ *
+ * I also grab the geocoodinates from a POI image, if they are available and the user
+ * has indicated that she wants to use them.
+ */
+ 
+// XXX node-form-submit refers only to the form in the UI used to build the node...
+// The fact that we're using that form internally even though we don't have a UI
+// doesn't seem to matter...
+function poi_node_form_submit(&$form, &$form_state)
+{
+	global $wine_walk_geoextract_success;
+	
+	// If the poi input contains a picture, and the 'extract_geolocation' flag has been
+	// set, attempt to extract the geocoordinates from that picture.
+	$fid = $form['field_pic']['und']['0']['fid']['#value'];
+	if (isset($fid) && $fid != 0 && $form_state['input']['extract_geolocation'] == 'true') {
+		// attempt to extract geo coordinates from the picture
+		$file = file_load($fid);
+		$latitude = 0;
+		$longitude = 0;
+		if ($file) {
+			$filepath = drupal_realpath($file->uri);
+			$command = 'exiftool -GPSLatitude -GPSLongitude -n ' . escapeshellarg($filepath);
+			$output = array();
+			exec($command, $output);
+			// better - go through all lines, just looking for string match...
+			if ($output[0]) {
+				$floatpos = strpos($output[0], ":");
+				if ($floatpos) { 
+					$latitude = substr($output[0], $floatpos + 2);
+					$form['field_lat']['und'][0]['value']['#value'] = $latitude;
+					$form_state['values']['field_lat']['und'][0]['value'] = $latitude;
+				}
+			}
+			if ($output[1]) {
+				$floatpos = strpos($output[1], ":");
+				if ($floatpos) { 
+					$longitude = substr($output[1], $floatpos + 2);
+					$form['field_long']['und'][0]['value']['#value'] = $longitude;
+					$form_state['values']['field_long']['und'][0]['value'] = $longitude; // XXX what the difference between the first and the second, I cannot say.
+				}
+			}
+		}
+		if ($latitude != 0 && $longitude != 0) {
+			$wine_walk_geoextract_success = true;
+		}
+	}
+	
+	// remove the submit handler that called this function.
+	// Since node_form_submit calls the handlers, if we leave
+	// the submit function in, we'll end up with infinite recursion.	
+	foreach ($form['#submit'] as $idx => $handler) {
+		if ($handler == 'poi_node_form_submit') {
+			unset($form['#submit'][$idx]);
+		}
+	}
+	
+	$node = node_form_submit($form, $form_state);
+	
+	return $node;
+}
+
+// XXX would like to be able to call hook_node_validate on the poi node, since that is where
+// I need to do the GPS location validation. That would also allow me to stop node creation
+// if I have a GPS location that is off the map.
+
+// poi_node_entityreference_validate
+// Called as part of the validation chain, for our entity reference id's which are
+// set as part of a REST call. The entityreference validator does not accept raw node
+// ids, so we need to validate the value and put it in 'target_id' ourselves.
+function poi_node_entityreference_validate($element, &$form_state, $form)
+{
+	if (!empty($element['value']['#value'])) {
+	
+		$field = field_widget_field($element, $form_state);
+		$instance = field_widget_instance($element, $form_state);
+
+		// first, check that the value is an integer
+		$value = $element['value']['#value'];
+		$regexp = '@[^-0-9]@';
+	    if ($value != preg_replace($regexp, '', $value)) {
+	        $message = t('Only numbers are allowed in entity reference %field.', array('%field' => $instance['label']));
+			form_error($element, $message);
+			return;
+		}
+		
+		// now, check that we're referencing the correct type of entity... XXX don't know how to get
+		// the restricted entity type here?
+		$entity_results  = db_query("select type from node where nid = :nid", array(':nid' => $value));
+		foreach ($entity_results as $entity) {
+			$type = $entity->type;
+		}
+		
+		// set target_id, which is where the entityreference module expects to find
+		// the entity id
+		$target = array('target_id' => $element['value']['#value']);
+		form_set_value($element, $target, $form_state);
+	}
+	
+	// If this field is required, that needs to be picked up somewhere... XXX
+}
+
+global $poi_node_creation;
+$poi_node_creation = false;
+/* 
+ * Implements hook_FORM_ID_form_alter
+ * Alter poi node form used for poi submission. We remove the previous validator
+ * (simple numeric validator, which does not work on an entityreference) and replace
+ * with our own validator. Our own validator is called from a slightly higher point in
+ * the tree because we have to add a 'target_id' key to the form.
+ */
+function  wine_walk_form_poi_node_form_alter(&$form, &$form_state, $form_id){
+	$form['field_walkmap']['und'][0]['#element_validate'][] = 'poi_node_entityreference_validate';
+	$form['field_walk']['und'][0]['#element_validate'][] = 'poi_node_entityreference_validate';
+	unset($form['field_walkmap']['und'][0]['value']['#element_validate']);
+	unset($form['field_walk']['und'][0]['value']['#element_validate']);
+	global $poi_node_creation;
+	$poi_node_creation = true;
+}
+
+/*
+ * Implements hook_services_request_preprocess_alter.
+ * Set a global flag indicating that this is a REST request. Certain form submissions
+ * are handled differently if we're coming through the services interface rather 
+ * than from the standard UI.
+ */
+function wine_walk_services_request_preprocess_alter($controller, $args, $options)
+{
+	global 	$wine_walk_req_is_rest;
+	$wine_walk_req_is_rest = true;
+}
+
+
+/* 
+ * Implements hook_services_request_postprocess_alter
+ * In the case when we were requested to create a POI node, send information back 
+ * to the caller to let her know whether the geoextraction was successful, and what
+ * the latitude and longitude of the new point of interest are.
+ */
+function wine_walk_services_request_postprocess_alter($controller, $args, &$options)
+{
+	// If the client has requested geolocation extraction but the server could not 
+	// get that information from the passed in file, tell the client. This is not a fatal
+	// error, but the client may want to know.
+	global $wine_walk_geoextract_success;
+	if ($args[0]['extract_geolocation'] == 'true' && !$wine_walk_geoextract_success) {
+		$options['extract_geolocation'] = 'false';
+	}
+	// if this was a poi creation, set the latitude and the longitude
+	// XXX I really, really want to be able to hook_poi_node! Sigh...
+	global $poi_node_creation;
+	
+	if ($poi_node_creation && $options['nid']) {
+		$lat_results  = db_query("select field_lat_value  from field_data_field_lat  where entity_id = :nid", array(':nid' => $options['nid']));
+		$long_results = db_query("select field_long_value from field_data_field_long where entity_id = :nid", array(':nid' => $options['nid']));
+		foreach ($lat_results as $lat_result) {
+			$options['lat'] = $lat_result->field_lat_value;
+			break;
+		}
+
+		foreach ($long_results as $long_result) {
+			$options['long'] = $long_result->field_long_value;
+			break;
+		}
+	}		
+}
+
+/*
+ * Implements hook_file_validate
+ * If we're validating a file that is an image associated with a point of interest, 
+ * perform image manipulation on the file
+ */
+function wine_walk_file_validate($file)
+{
+	// check - is this a file loaded with the poi_image type?
+	if ($_GET['poi_image'] == 'true') {
+		// pull out exif data... - not needed!
+		
+		// create image from file
+		$image = image_load($file->uri);
+		
+		// get rotation, if any
+		$rotation = intval($_GET['rotation']);
+		if (!$rotation || ($rotation != 90 && $rotation != 180 && $rotation != 270)) {
+			$rotation = 0;
+		}
+		
+		// scale if necessary
+		if ($rotation == 90 || $rotation == 270) {
+			$height = $image->info['width'];
+			$width  = $image->info['height'];
+		} else {
+			$height = $image->info['height'];
+			$width  = $image->info['width'];
+		}
+		
+		$MAX_HEIGHT = 500;
+		$MAX_WIDTH  = 480;
+		$width_scale = 1;
+		$height_scale = 1;
+		if ($height > $MAX_HEIGHT) {
+			$height_scale = $MAX_HEIGHT/$height;
+		} 
+		
+		if ($width > $MAX_WIDTH) {
+			$width_scale = $MAX_WIDTH/$width;
+		}
+		
+		$scale = min($width_scale, $height_scale);
+		if ($scale < 1) {
+			image_scale($image, $scale*$width, $scale*$height);
+		}
+		
+		// rotate, if necessary
+		if ($rotation != 0) {
+			image_rotate($image, $rotation);
+		} 
+		
+		image_save($image);
+		// XXX - would like to move the file, and to change its owner. I think I can only do
+		// this in the postprocess callback.
+//		file_move($file, $poi_images_dir);
+//		file_usage_add($file, 'wine_walk', "poi", $file->fid);		
+	} 
+	
+}
+
+// user_access('create poi content') 
+// user_access('post comment')
