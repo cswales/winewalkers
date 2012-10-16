@@ -1,0 +1,107 @@
+.node-walk-map .field-name-field-pic .field-item{
+    overflow:auto;
+}
+
+.ds-2col.node-park.view-mode-full .group-right{
+    float:right;
+    width:25%;
+}
+.ds-2col.node-winery.view-mode-full .group-right{
+    float:right;
+    width:25%;
+}
+.ds-2col.node-park.view-mode-full .group-right .field-label{
+    font-family: Georgia;
+    color:#E0DB52;
+    font-weight:normal;
+    font-size:12pt;
+}
+
+.ds-2col.node-winery.view-mode-full .group-right .field-label{
+    font-family: Georgia;
+    color:#E0DB52;
+    font-weight:normal;
+    font-size:12pt;
+}
+
+.ds-2col.node-park.view-mode-full .group-left{
+    width:70%;
+}
+.ds-2col.node-park.view-mode-full .group-left{
+    width:70%;
+}
+
+.ds-2col-stacked.node-park.view-mode-teaser .group-right{
+    float:left;
+    width:70%;
+}
+.ds-2col-stacked.node-winery.view-mode-teaser .group-right{
+    float:left;
+    width:70%;
+}
+
+.ds-1col.node-walk.view-mode-full .field-label{
+    font-family:Georgia;
+    color:#E0DB52;
+    font-weight:normal;
+    font-size:12pt;
+}
+
+.ds-1col.node-walk.view-mode-full .group-header{
+    height:24px;
+}
+
+.ds-2col-stacked.node-park.view-mode-teaser .group-left{
+    width:180px;
+    margin-left:20px;
+    margin-top:20px;
+    margin-right:20px;
+}
+.ds-2col-stacked.node-winery.view-mode-teaser .group-left{
+    width:180px;
+    margin-left:20px;
+    margin-top:20px;
+    margin-right:20px;
+}
+
+.node-park.view-mode-full .node-media-gallery.node-teaser img{
+    width:150px;
+    height:150px;
+}
+
+.node-park.view-mode-full .node-media-gallery.node-teaser h2{
+    visibility:hidden;
+    display:none;
+}
+
+.node-park.view-mode-full .node-media-gallery.node-teaser .media-collection-item-wrapper {
+    padding:0;
+}
+
+.node-walk.view-mode-full .node-media-gallery.node-teaser img{
+    width:150px;
+    height:150px;
+}
+
+.node-walk.view-mode-full .node-media-gallery.node-teaser h2{
+    visibility:hidden;
+    display:none;
+}
+
+.node-walk.view-mode-full .node-media-gallery.node-teaser .media-collection-item-wrapper {
+    padding:0;
+}
+
+.node-winery.view-mode-full .node-media-gallery.node-teaser img{
+    width:150px;
+    height:150px;
+}
+
+.node-winery.view-mode-full .node-media-gallery.node-teaser h2{
+    visibility:hidden;
+    display:none;
+}
+
+.node-winery.view-mode-full .node-media-gallery.node-teaser .media-collection-item-wrapper{
+    padding:0;
+}
