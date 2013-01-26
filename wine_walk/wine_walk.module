@@ -9,6 +9,8 @@ function wine_walk_form($node, $form_state) {
     return node_content_form($node, $form_state);
 }
 
+// XXX do I need this? Implements hook view, but
+// I think that only works if I've defined the bundle type.
 function wine_walk_view($node, $view_mode) {
 //    flog($view_mode, 'TWW view: ');
     return $node;
@@ -34,12 +36,17 @@ $wine_walk_geoextract_success = false;
  * dynamic display directly in Javascript, which I can program in 10x faster than I can
  * if I have to go through Drupal. 2) It allows me to make REST calls to get information
  * directly from Drupal.
+ *
+ * For node type wineries, create a link to add new drink' // here is where I could switch
+ * what it's called based on whether it's a winery, a brewery, or something else... XXX TODO
  */
 function wine_walk_node_view($node, $view_mode, $langcode){
 
 	global $needs_upgraded_jquery;
 //	global $user;
 	$needs_upgraded_jquery = false;
+	
+	flog_it($log);
 	
 	// For walk nodes, add 'nekkid=true' to the query string associated with the link to 
 	// each associated walkmap
@@ -148,12 +155,169 @@ function wine_walk_node_view($node, $view_mode, $langcode){
 		
 		$needs_upgraded_jquery = true;
 		
+	} 
+	
+	// If we're looking at a winery in full mode, add a button so that we can add
+	// a new drink // XXX - only show this if the user has the correct privileges!!!
+	else if ($node->type == 'winery' && $view_mode=="full") {
+		// and how do I do this?
+		ctools_include("ajax");
+		ctools_include("modal");
+		ctools_modal_add_js();
+		$log = 'have a winery! Attempting to add a button';
+		flog_it($log);
+		
+		$custom_modal_style = array(
+			'my_modal_style' => array(
+				'modalSize' => array(
+					'type' => 'fixed',
+					'width' => 540,
+					'height' => 540
+				),
+				'animation' => 'fadeIn',
+			),
+		);
+		drupal_add_js($custom_modal_style, 'setting');
+		$url = 'wine_walk_modal/nojs/libation/form'; //?nodeId=' . $node->nid; - see below
+		$node->content['field_button'] = array(); 
+		$node->content['field_button']['#markup'] = ctools_modal_text_button(t('Add Drink'), $url, 
+                                                        t('Is this a title?'), 'ctools-modal-my-modal-style');
+        
+		// internal functions helpfully encode url in a destructive way, so we can't put the nid parameter
+		// in when we call ctools_modal. So, fix it up here.
+        $url_with_params = $url . '?nodeId=' . $node->nid;    
+        $new_url =  str_replace($url, $url_with_params ,$node->content['field_button']['#markup']);                       
+        $node->content['field_button']['#markup'] = $new_url;
+        ctools_include('plugins'); // XXX what does this do?
+			
 	}
-
+	
 //	flog_it($view_mode, 'CSW TWW view_mode: ');
 //	flog_it($node->type, 'CSW TWW node_type: ');
 	return $node;
 }
+
+/*
+*  Implements hook menu. 
+*/
+
+function wine_walk_menu(){
+	$items = array();
+
+	// Set up the modal form invoked when adding a libation	
+	$items['wine_walk_modal/ajax/libation/form'] = array(
+		'title' => 'Add Drink',
+		'page callback' => 'wine_walk_add_libation_form',
+		'page arguments' => array(1),
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK,
+	);
+	
+	
+	return $items;
+}
+
+
+function wine_walk_add_libation_form($js = NULL)
+{
+	// I really don't care if js isn't set. If you don't have js installed, I'm not 
+	// going to make it easy on you.
+	ctools_include('ajax');
+	ctools_include('modal');
+	
+	$form_state = array(
+    	'title' => t('Add Quaff!'),
+    	'ajax' => TRUE,
+  	);
+//  	$form = drupal_get_form('libation_node_form');
+
+	// okay. Now follow this one. I need to wrap the form with ctools goodness
+	// by calling ctools_modal_form_wrapper(). Now, you'd think that I could just call
+	// that with the name of the form I want to wrap (libation_node_form), but no.
+	// When a *node* gets created, it goes through node_add, which puts a little bit 
+	// of magic in the form state data (why does an empty form need a state? why?) 
+	// and that little bit of magic allows fills out the form enough to allow us to
+	// pass the access test in one of the form_alter hooks. If we neglect the magic,
+	// the whole thing crashes on the PHP equivalent of a null pointer exception.
+	// 
+	// I hate Drupal.
+	
+	// Next five lines are magic, copied from node.pages.inc, per discussion above
+	global $user;
+	$node = (object) array('uid' => $user->uid, 'name' => (isset($user->name) ? $user->name : ''), 'type' => 'libation', 'language' => LANGUAGE_NONE);
+    // Remove $form_id from the arguments.
+	array_shift($node);
+  	$form_state['build_info']['args'][0] = $node;
+  	
+  	// Oh wait. We also need to include the pages file
+  	require_once DRUPAL_ROOT . '/' . 'modules/node/node.pages.inc';
+
+  	
+	$output = ctools_modal_form_wrapper('libation_node_form', $form_state);
+	if (!empty($form_state['executed'])) {
+		// We'll just overwrite the form output if it was successful.
+		$output = array();
+    	$output[] = ctools_modal_command_dismiss(t('Success!'));
+    	// If you want to leave a message and links:
+    	//$output[] = ctools_modal_command_display(t('Login Success'), '<div class="modal-message">Login successful. 
+                      //    <a href="/modal/nojs/test">Go back</a>.</div>');
+  	}
+	print ajax_render($output);
+	exit;
+}
+
+/*
+function wine_walk_libation_form(&$form_state)
+{
+	$form = drupal_get_form('libation_add_form');
+	return $form;
+}
+*/
+
+function wine_walk_node_view_alter(&$build)
+{
+	if ($build['#bundle'] == 'libation' && $build['#view_mode'] == 'teaser') {
+		// group fields.
+		// Note that by using a pre-existing field name, I trick display suite into
+		// letting the grouped fields through.
+		// I hate Drupal.
+		$ratings = array();
+		$ratings['field_rating'] = $build['field_rating'];
+		$ratings['field_taste'] = $build['field_taste'];
+		unset($build['field_rating']);
+		unset($build['field_taste']);
+		$build['field_rating'] = $ratings;  
+		
+		$author_date = array();
+		$author_date['author'] = $build['author'];
+		$author_date['post_date']   = $build['post_date'];
+		unset($build['author']);
+		unset($build['post_date']);
+		$build['author'] = $author_date;
+	}
+}
+
+function wine_walk_form_libation_node_form_alter(&$form, &$form_state, $form_id) {
+	if ($form_id == 'libation_node_form') {
+		// hide stuff that we don't want to see... XXX iff we're in a dialog, from the winery page
+		$form['revision_information']['#type'] = 'hidden';
+		$form['author']['#type'] = 'hidden';
+		$form['options']['#type'] = 'hidden';
+		$form['actions']['#type'] = 'hidden';
+		$form['menu']['#type']    = 'hidden';
+		$form['seo_vtab']['#type']  = 'hidden';
+		$form['comment_settings']['#type'] = 'hidden';
+		$form['title']['#title'] = "Drink Name:";
+		$form['field_winery']['und']['#default_value'] = 'Ahlgren';
+//		$form_state['field_winery']['und']['#input'] = 'Ahlgren';
+		// XXX - I also need to automatically populate the winery node id. Ideally, it would be in the URL,
+		// except that I don't seem to be able to pass it through ctools
+		flog_it($form_id);
+	}
+}
+
+
+	
 
 /* 
  * Implements hook_page_alter
@@ -446,6 +610,38 @@ function wine_walk_file_validate($file)
 	} 
 	
 }
+
+// XXX is module implements even called for form_form_ID alter? or is module_implements_alter
+// just not called?
+
+function wine_walk_module_implements_alter(&$implementations, $hook)
+{
+	$foo = "hi mom";
+	flog_it($hook);
+	switch ($hook) {
+//		case 'form_libation_node_form_alter': // we note that Drupal has a bug and you can't hook form_FORM_ID_alter. I love Drupal.
+		case 'form_alter': // we note that Drupal has a bug and you can't hook form_FORM_ID_alter. I love Drupal.
+			flog_it($hook);
+			if (isset($implementations['wine_walk'])) {
+				$ww = $implementations['wine_walk'];
+				unset($implementations['wine_walk']);
+				$implementations['wine_walk'] = $ww;
+			}
+			break;
+		default:
+			break;
+/*
+			if (isset($implementations['wine_walk'])) {
+				$ww = $implementations['wine_walk'];
+				unset($implementations['wine_walk']);
+				$implementations['wine_walk'] = $ww;
+			}
+			break;
+	*/
+	}
+}
+
+
 
 // user_access('create poi content') 
 // user_access('post comment')

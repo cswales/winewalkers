@@ -61,7 +61,7 @@ twod_xform.createTransform = function(p1, p2, p1t, p2t, scaleX, scaleXT)
 	// tx and ty are the transformations in x and y respectively,
 	// given the scale and the rotation
 	var tx =  p1t.x - scale/scaleXT * ( p1.x * scaleX * Math.cos(theta) - p1.y * Math.sin(theta));
-	var ty =  p1t.y          - scale * ( p1.x * scaleX * Math.sin(theta) + p1.y * Math.cos(theta));
+	var ty =  p1t.y - scale         * ( p1.x * scaleX * Math.sin(theta) + p1.y * Math.cos(theta));
 //	console.log("tx: " + tx + ", ty: " + ty);
 
 	// now return the matrix

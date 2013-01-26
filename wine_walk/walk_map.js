@@ -397,6 +397,8 @@ g_walk_map.newPOILocation = new Object({"lat":0, "long":0});
 			var mapCoords = twod_xform.transform({x:parseFloat(POI.long),y:parseFloat(POI.lat)}, m_mapTransform);
 			mapCoords.x = mapCoords.x * m_scale; // - m_x_offset * m_scale;
 			mapCoords.y = mapCoords.y * m_scale; // - m_y_offset * m_scale;
+			
+			console.log("POI at coordinates (" + mapCoords.x/m_scale+ "," + mapCoords.y/m_scale + ")");
 
 			//  Place it on the map.
 			var element = document.createElement("a");
@@ -407,8 +409,8 @@ g_walk_map.newPOILocation = new Object({"lat":0, "long":0});
 //			}
 			element.setAttribute("href","javascript:g_walk_map.showPOI("+ i + ")");
 			
-			element.style.top  = String(mapCoords.y - 32) + "px"; // XXX this is the offset for the caret... need a better way to handle this
-			element.style.left = String(mapCoords.x - 8) + "px"; // XXX ditto above
+			element.style.top  = String(mapCoords.y - 34) + "px"; // XXX this is the offset for the caret... need a better way to handle this
+			element.style.left = String(mapCoords.x - 9) + "px"; // XXX ditto above
 			POIDiv.appendChild(element);
 		}
 	}
@@ -757,6 +759,7 @@ g_walk_map.newPOILocation = new Object({"lat":0, "long":0});
 			var pos = caret.position(); // make sure to get the caret position before we hide the enclosing blocks!!
 			var caretH = caret.height();
 			var caretW = caret.width();
+			console.log("CaretW is " + caretW + " caretH is " + caretH);
 			var scrollTop = $('#add_poi_dialog_img_frame').scrollTop();
 			var scrollLeft = $('#add_poi_dialog_img_frame').scrollLeft();
 			$("#walk_map_add_poi_frame").css("visibility", "visible");
@@ -765,8 +768,9 @@ g_walk_map.newPOILocation = new Object({"lat":0, "long":0});
 			$("#walk_map_add_poi_dialog_map_div").css("display", "none");
 			// Get the location of the poi from the current location of the caret.
 			if (caretSet) {
+				console.log("Setting caret position. ScrollTop is " + scrollTop + " scrollLeft is " + scrollLeft);
 				var GPSpos = twod_xform.transform({x:pos.left + Math.floor(caretW/4) + scrollLeft,y:pos.top + caretH + scrollTop}, m_mapInvTransform);
-				console.log(" add poi. (x,y) = (" + pos.left + "," + pos.top + "), (long,lat) = (" + Math.round(GPSpos.x * 10000)/10000 + ","  + Math.round(GPSpos.y*10000)/10000 + ")");
+				console.log(" add poi. (x,y) = (" + (pos.left + Math.floor(caretW/4) + scrollLeft) + "," + (pos.top + caretH + scrollTop) + "), (long,lat) = (" + Math.round(GPSpos.x * 1000000)/1000000 + ","  + Math.round(GPSpos.y*1000000)/1000000 + ")");
 				setNewPOILocation(GPSpos.y, GPSpos.x);
 			}
 		}
